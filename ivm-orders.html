@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <title>Замовлення</title>
   <style>
     :root{
@@ -118,7 +119,19 @@
 <script>
 (() => {
   const WEBHOOK_URL = 'https://n8n.vetai.win/webhook/4c9d9576-0942-437c-8212-52512b0b7c0e';
+  
+// === IVM context from Telegram + query ===
+const tg = window.Telegram?.WebApp;
+tg?.ready?.(); tg?.expand?.();
 
+const urlCtx = new URL(location.href);
+const q = Object.fromEntries(urlCtx.searchParams.entries()); // очікуємо ?uid=&role=&jwt= з index.html
+
+const TG_INIT_DATA = tg?.initData || "";               // сирий рядок для валідації на бекенді
+const TG_USER      = tg?.initDataUnsafe?.user || null; // {id, username, language_code, photo_url, ...}
+const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
+
+  
   const LS_KEY_DATA = 'orders_cache_v3';
   const LS_KEY_TS   = 'orders_cache_ts_v3';
   const COOLDOWN_MS = 60_000;
@@ -412,7 +425,30 @@ async function fetchData(force){
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), 15000);
   try{
-    const res = await fetch(WEBHOOK_URL, {method:'GET', headers:{'Accept':'application/json'}, signal: ctrl.signal});
+    // Будуємо URL з параметрами користувача
+const u = new URL(WEBHOOK_URL);
+u.searchParams.set('uid',  q.uid  || uidFromTG || '');
+u.searchParams.set('role', q.role || '');           // напр. manager/admin/...
+u.searchParams.set('lang', TG_USER?.language_code || 'uk');
+if (q.jwt) u.searchParams.set('jwt', q.jwt);        // з індексного шлюзу
+
+// За потреби: фільтри (залиш, якщо вже робиш їх на бекенді)
+// u.searchParams.set('status', els.statusSelect.value || '');
+
+// В заголовок — сирий initData (краще як base64, щоб уникати спецсимволів)
+function b64(s){ try{ return btoa(unescape(encodeURIComponent(s))); }catch(_){ return ''; } }
+const headers = {
+  'Accept': 'application/json',
+  'X-IVM-InitData-B64': b64(TG_INIT_DATA),    // бекенд зможе розкодувати і провалідувати підпис
+  'X-IVM-Platform': tg?.platform || 'unknown',
+  'X-IVM-Version':  tg?.version  || 'n/a',
+};
+
+const res = await fetch(u.toString(), {
+  method:'GET',
+  headers,
+  signal: ctrl.signal
+});
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (!Array.isArray(json)) throw new Error('Очікується масив об\'єктів');
