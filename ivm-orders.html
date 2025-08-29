@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Замовлення</title>
+  <style>
+    :root{
+      --bg:#fafafa; --fg:#0f172a; --muted:#6b7280; --card:#ffffff; --bd:#e5e7eb;
+      --pink:#fbcfe8; --sky:#bae6fd; --white:#ffffff; --orange:#ffedd5;
+      --picked:#f5e9da; --picked-fg:#3b2b1f; --green:#bbf7d0; --red:#fecaca;
+      /* кольори для рядків номенклатури */
+      --row-ok:#e8f7e8;      /* блідозелений */
+      --row-warn:#fff6cc;    /* блідо-жовтий */
+      --row-bad:#ffe1ea;     /* блідо-рожевий */
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+
+    /* layout */
+    .container{max-width:840px;margin:0 auto;padding:8px}
+    header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.95);backdrop-filter:saturate(120%) blur(8px);border-bottom:1px solid var(--bd)}
+    h1{font-size:18px;margin:0}
+    .row{display:flex;gap:8px;align-items:center}
+    .btn{border:1px solid #0284c7;background:#0284c7;color:#fff;border-radius:12px;padding:8px 12px;font-weight:600}
+    .btn[disabled]{border-color:#d1d5db;background:#e5e7eb;color:#6b7280}
+    .select{width:100%;border:1px solid var(--bd);border-radius:12px;padding:10px;font-size:14px;background:#fff}
+
+    /* list */
+    ul.list{list-style:none;padding:0;margin:12px 0 48px;display:grid;gap:10px}
+    .card{border-radius:16px;box-shadow:0 1px 2px #0001, 0 6px 16px #0001;overflow:hidden;cursor:pointer}
+    .card > .p{padding:12px}
+    .top{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+    .titleLine{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .dot{width:6px;height:6px;border-radius:999px;background:#0f172a;opacity:.5}
+    .number{font-weight:800}
+    .client{font-weight:700}
+    .date{font-size:12px;opacity:.8;text-align:right}
+    .badges{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+    .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;border:1px solid #0001;background:#fff;white-space:nowrap}
+    .i{font-size:14px;line-height:1}
+    .grid2{margin-top:10px;display:grid;gap:8px}
+    @media(min-width:560px){.grid2{grid-template-columns:1fr 1fr}}
+    .muted{color:var(--muted)}
+    .error{color:#dc2626;font-size:12px;margin-top:4px}
+
+    /* стани */
+    .st-new{background:var(--pink)}
+    .st-manager{background:var(--sky)}
+    .st-to-warehouse{background:var(--white)}
+    .st-picking{background:var(--orange)}
+    .st-picked{background:var(--picked); color:var(--picked-fg)}
+    .st-shipped{background:var(--green)}
+    .st-await{background:var(--red)}
+
+    /* таблиця товарів */
+    .goodsWrap{padding:0 12px 12px}
+    .goodsPanel{
+      overflow:hidden;
+      height:0;
+      transition:height .28s ease;
+      will-change:height;
+    }
+    .goodsTable{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      background:#fff;
+      border:1px solid var(--bd);
+      border-radius:12px;
+      overflow:hidden;
+    }
+    .goodsTable th, .goodsTable td{
+      padding:8px 10px;
+      font-size:13px;
+      border-bottom:1px solid var(--bd);
+    }
+    .goodsTable th{
+      text-align:left;
+      background:#f8fafc;
+      position:sticky; top:0; /* трішки зручніше на мобі */
+      z-index:1;
+    }
+    .goodsTable tr:last-child td{border-bottom:none}
+    .col-name{width:100%}
+    .col-num{width:0;white-space:nowrap;text-align:right}
+
+    /* підсвітка рядків */
+    .row-ok    { background:var(--row-ok) }
+    .row-warn  { background:var(--row-warn) }
+    .row-bad   { background:var(--row-bad) }
+
+    /* дрібнички доступності */
+    .card:focus-visible{outline:2px solid #0284c7; outline-offset:2px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container" style="padding:8px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h1 id="title">Замовлення</h1>
+        <button id="refreshBtn" class="btn">Оновити</button>
+      </div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <select id="statusSelect" class="select" style="min-width:180px"></select>
+      </div>
+      <div id="error" class="error" role="alert" hidden></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <ul id="list" class="list"></ul>
+    <div id="empty" class="muted" style="text-align:center;margin-top:24px" hidden>Немає даних для відображення</div>
+    <footer class="muted" style="text-align:center;margin:24px 0 56px">Джерело: платформа VETAi. Оновлення не частіше 1/хв. Кеш: localStorage.</footer>
+  </main>
+
+<script>
+(() => {
+  const WEBHOOK_URL = 'https://n8n.vetai.win/webhook/4c9d9576-0942-437c-8212-52512b0b7c0e';
+
+  const LS_KEY_DATA = 'orders_cache_v3';
+  const LS_KEY_TS   = 'orders_cache_ts_v3';
+  const COOLDOWN_MS = 60_000;
+
+  const els = {
+    title: document.getElementById('title'),
+    list: document.getElementById('list'),
+    empty: document.getElementById('empty'),
+    error: document.getElementById('error'),
+    refreshBtn: document.getElementById('refreshBtn'),
+    statusSelect: document.getElementById('statusSelect'),
+  };
+
+  /* helpers */
+  function formatUAH(n){
+    const num = typeof n === 'string' ? Number(n.replace(',', '.')) : Number(n);
+    if (!isFinite(num)) return '';
+    return new Intl.NumberFormat('uk-UA',{style:'currency',currency:'UAH',maximumFractionDigits:2}).format(num);
+  }
+  function formatDateTime(iso){
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(+d)) return iso;
+    return d.toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+  function formatDate(iso){
+    const d = new Date(iso); if (isNaN(+d)) return iso || '—';
+    return d.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric'});
+  }
+  function statusClass(s){
+    s = (s||'').trim();
+    if (s === 'Новий') return 'st-new';
+    if (s === 'Обробляеться (мен.)' || s === 'Обробляється (мен.)') return 'st-manager';
+    if (s === 'Відправлено на склад') return 'st-to-warehouse';
+    if (s === 'Збирається (скл.)') return 'st-picking';
+    if (s === 'Зібрано (скл.)') return 'st-picked';
+    if (s === 'Відвантажено (скл.)') return 'st-shipped';
+    if (s === 'Очікуємо оплату') return 'st-await';
+    return '';
+  }
+  function statusIcon(s){
+    s = (s||'').trim();
+    if (s === 'Новий') return '🆕';
+    if (s === 'Обробляеться (мен.)' || s === 'Обробляється (мен.)') return '👤';
+    if (s === 'Відправлено на склад') return '📦';
+    if (s === 'Збирається (скл.)') return '🛠️';
+    if (s === 'Зібрано (скл.)') return '✅';
+    if (s === 'Відвантажено (скл.)') return '🚚';
+    if (s === 'Очікуємо оплату') return '💰';
+    return 'ℹ️';
+  }
+
+  let data = [];
+  let openRef = null; // яка картка відкрита
+
+  function setTitleFromData(){
+    if (!data.length) { els.title.textContent = 'Замовлення'; return; }
+    const m = (data[0].IM_MANAGER || '').trim();
+    const from = data[0].IM_DATE_FROM ? formatDate(data[0].IM_DATE_FROM) : '—';
+    const to   = data[0].IM_DATE_TO   ? formatDate(data[0].IM_DATE_TO)   : '—';
+    els.title.textContent = `Замовлення ${m || '—'} (${from} - ${to})`;
+  }
+
+  function buildStatusList(){
+    const set = new Set(data.map(o => (o.IM_STATUS||'').trim()).filter(Boolean));
+    const opts = ['Всі стани', ...Array.from(set.values())];
+    els.statusSelect.innerHTML = opts.map(s => `<option value="${s}">${s}</option>`).join('');
+  }
+
+  /* логіка підсвітки рядка товару */
+  function rowClassForItem(orderStatus, qty, res, picked){
+    const doneStatuses = new Set(['Зібрано (скл.)','Відвантажено (скл.)']);
+    if (doneStatuses.has((orderStatus||'').trim())){
+      if (Number(picked) >= Number(qty)) return 'row-ok';
+      if (Number(picked) > 0) return 'row-warn';
+      return 'row-bad';
+    } else {
+      if (Number(res) >= Number(qty)) return 'row-ok';
+      if (Number(res) > 0) return 'row-warn';
+      return 'row-bad';
+    }
+  }
+
+  function goodsTableHTML(order){
+    const goods = Array.isArray(order.IM_GOODS) ? order.IM_GOODS : [];
+    if (goods.length === 0) return '<div class="muted" style="padding:8px 0">Номенклатура відсутня</div>';
+
+    const rows = goods.map(g => {
+      const cls = rowClassForItem(order.IM_STATUS, g.Количество, g.Резерв, g.КоличествоСобрано);
+      return `
+        <tr class="${cls}">
+          <td class="col-name">${g.IM_NOMENKLATURA || '—'}</td>
+          <td class="col-num">${g.Количество ?? '—'}</td>
+          <td class="col-num">${g.Резерв ?? '—'}</td>
+          <td class="col-num">${g.КоличествоСобрано ?? '—'}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div class="goodsWrap">
+        <div class="goodsPanel" role="region" aria-label="Номенклатура">
+          <table class="goodsTable">
+            <thead>
+              <tr>
+                <th class="col-name">Номенклатура</th>
+                <th class="col-num">Зам.</th>
+                <th class="col-num">Рез.</th>
+                <th class="col-num">Зіб.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  /* анімація розгортання/згортання */
+  function openPanel(panel){
+    if (!panel) return;
+    panel.style.display = 'block';
+    const target = panel.scrollHeight;
+    panel.style.height = '0px';
+    requestAnimationFrame(()=> {
+      panel.style.height = target + 'px';
+    });
+  }
+  function closePanel(panel){
+    if (!panel) return;
+    const current = panel.scrollHeight;
+    panel.style.height = current + 'px';
+    requestAnimationFrame(()=> {
+      panel.style.height = '0px';
+    });
+  }
+  function afterTransition(e){
+    if (e.propertyName !== 'height') return;
+    const panel = e.currentTarget;
+    if (panel.style.height === '0px'){
+      panel.style.display = 'none';
+    } else {
+      panel.style.height = 'auto';
+    }
+  }
+
+  function render(){
+    const statusFilter = els.statusSelect.value;
+    const sorted = [...data].sort((a,b)=> new Date(b.IM_DATE) - new Date(a.IM_DATE));
+    let filtered = sorted;
+    if (statusFilter && statusFilter !== 'Всі стани'){
+      filtered = filtered.filter(o => (o.IM_STATUS||'').trim() === statusFilter);
+    }
+
+    els.list.innerHTML = '';
+    if (filtered.length === 0){
+      els.empty.hidden = false;
+      return;
+    }
+    els.empty.hidden = true;
+
+    const frag = document.createDocumentFragment();
+    filtered.forEach(o => {
+      const li = document.createElement('li');
+      li.className = `card ${statusClass(o.IM_STATUS)}`;
+      li.tabIndex = 0;
+      li.dataset.ref = o.IM_NUMBER || Math.random().toString(36).slice(2);
+
+      li.innerHTML = `
+        <div class="p">
+          <div class="top">
+            <div class="titleLine">
+              <div class="number">${o.IM_NUMBER || '—'}</div>
+              <div class="dot" aria-hidden="true"></div>
+              <div class="client">${o.IM_CLIENT || '—'}</div>
+            </div>
+            <div class="date">${formatDateTime(o.IM_DATE)}</div>
+          </div>
+
+          <div class="badges">
+            ${o.IM_STATUS ? `<span class="badge"><span class="i">${statusIcon(o.IM_STATUS)}</span>${o.IM_STATUS}</span>` : ''}
+            ${o.IM_DOSTAVKA ? `<span class="badge"><span class="i">🚚</span>${o.IM_DOSTAVKA}</span>` : ''}
+            ${(o.IM_SUM ?? '') !== '' ? `<span class="badge"><span class="i">₴</span>${formatUAH(o.IM_SUM)}</span>` : ''}
+          </div>
+
+          ${(o.IM_DRIEVER || o.IM_DRIEVER_PHONE) ? `
+            <div class="grid2">
+              <div><strong>Кур'єр:</strong> ${o.IM_DRIEVER || '—'}</div>
+              <div><strong>Телефон:</strong> ${o.IM_DRIEVER_PHONE ? `<a class="tel" href="tel:${o.IM_DRIEVER_PHONE}">${o.IM_DRIEVER_PHONE}</a>` : '—'}</div>
+            </div>
+          ` : ''}
+
+          ${o.IM_COMENT ? `<div style="margin-top:8px"><strong>Коментар:</strong> ${o.IM_COMENT}</div>` : ''}
+        </div>
+
+        ${goodsTableHTML(o)}
+      `;
+
+      // поведінка акордеону
+      const panel = li.querySelector('.goodsPanel');
+      panel.addEventListener('transitionend', afterTransition);
+      panel.style.display = 'none'; // старт: згорнуто
+
+      li.addEventListener('click', (ev) => {
+        // не розгортати при кліку по tel:
+        const a = ev.target.closest('a');
+        if (a && a.classList.contains('tel')) return;
+
+        const ref = li.dataset.ref;
+
+        // якщо відкрита інша — закриваємо
+        if (openRef && openRef !== ref){
+          const openLi = els.list.querySelector(`li.card[data-ref="${openRef}"]`);
+          if (openLi){
+            const openPanel = openLi.querySelector('.goodsPanel');
+            closePanel(openPanel);
+          }
+          openRef = null;
+        }
+
+        const isOpen = panel.style.display !== 'none' && panel.style.height !== '0px';
+        if (isOpen){
+          closePanel(panel);
+          openRef = null;
+        } else {
+          openPanel(panel);
+          openRef = ref;
+        }
+      });
+
+      // доступність: розгортання через Enter/Space
+      li.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); }
+      });
+
+      frag.appendChild(li);
+    });
+    els.list.appendChild(frag);
+  }
+
+  function useCache(){
+    try{
+      const raw = localStorage.getItem(LS_KEY_DATA);
+      if (!raw) return false;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)){
+        data = arr;
+        setTitleFromData();
+        buildStatusList();
+        render();
+        return true;
+      }
+    }catch{}
+    return false;
+  }
+
+  function setError(msg){
+    if (!msg){ els.error.hidden = true; els.error.textContent = ''; return; }
+    els.error.hidden = false; els.error.textContent = msg;
+  }
+
+  function updateRefreshButton(){
+    const last = Number(localStorage.getItem(LS_KEY_TS) || 0);
+    const left = Math.max(0, COOLDOWN_MS - (Date.now() - last));
+    if (left === 0){
+      els.refreshBtn.disabled = false;
+      els.refreshBtn.textContent = 'Оновити';
+    } else {
+      els.refreshBtn.disabled = true;
+      els.refreshBtn.textContent = `Через ${Math.ceil(left/1000)}s`;
+    }
+  }
+
+let inFlight = false;
+
+async function fetchData(force){
+  if (inFlight) return;           // не даємо стартувати другому запиту
+  inFlight = true;
+
+  setError('');
+  const last = Number(localStorage.getItem(LS_KEY_TS) || 0);
+  const due = Date.now() - last >= COOLDOWN_MS;
+  if (!force && !due){
+    useCache();
+    updateRefreshButton();
+    inFlight = false;             // ← не забудь повернути
+    return;
+  }
+  els.refreshBtn.disabled = true; els.refreshBtn.textContent = 'Оновлення…';
+
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 15000);
+  try{
+    const res = await fetch(WEBHOOK_URL, {method:'GET', headers:{'Accept':'application/json'}, signal: ctrl.signal});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!Array.isArray(json)) throw new Error('Очікується масив об\'єктів');
+
+    data = json.map(o => ({
+      ...o,
+      IM_STATUS: (o.IM_STATUS||'').trim(),
+      IM_SUM: typeof o.IM_SUM === 'string' ? Number(o.IM_SUM.replace(',', '.')) : o.IM_SUM,
+    }));
+
+    localStorage.setItem(LS_KEY_DATA, JSON.stringify(data));
+    localStorage.setItem(LS_KEY_TS, String(Date.now()));
+    openRef = null;
+    setTitleFromData();
+    buildStatusList();
+    render();
+  } catch(e){
+    setError(e?.message || 'Помилка завантаження');
+    useCache();
+  } finally {
+    clearTimeout(t);
+    updateRefreshButton();
+    inFlight = false;            // ← розблоковуємо після завершення
+  }
+}
+
+  // init
+  useCache();
+  fetchData(false);
+
+  els.refreshBtn.addEventListener('click', ()=> fetchData(true));
+  els.statusSelect.addEventListener('change', ()=>{
+    openRef = null; // фільтр змінився — згортаємо
+    render();
+  });
+  
+  setInterval(updateRefreshButton, 1000);
+
+  // періодичне автооновлення (раз на 5 хвилин)
+  // --- керування полінгом лише у видимій вкладці ---
+let pollTimer = null;
+const POLL_MS = 300_000; // 5 хв
+
+function startPolling(){
+  if (pollTimer) return; // вже запущено
+  pollTimer = setInterval(() => {
+    // підстраховка: перевіряємо видимість навіть якщо таймер запущений
+    if (document.visibilityState === 'visible') fetchData(false);
+  }, POLL_MS);
+}
+
+function stopPolling(){
+  if (pollTimer){
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// старт: тільки якщо вкладка видима
+if (document.visibilityState === 'visible') startPolling();
+
+// оновлюємо поведінку при зміні видимості
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible'){
+    // одразу підтягнути свіжі дані (дотримається cooldown)
+    fetchData(false);
+    startPolling();
+  } else {
+    // у фоні не робимо зайвих запитів
+    stopPolling();
+  }
+});
+  
+})();
+</script>
+</body>
+</html>
