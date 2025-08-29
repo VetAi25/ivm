@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>I’m Vetstar Manager • IVM</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root{ --bg:#0b1020; --card:#141a2e; --fg:#e8f0ff; --muted:#94a3b8;
+           --blue:#1f6feb; --orange:#ff8a3d; }
+    html,body{height:100%} body{margin:0;background:var(--bg);color:var(--fg);
+      font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{height:100%;display:grid;place-items:center;padding:24px}
+    .card{max-width:560px;width:100%;background:var(--card);border:1px solid #1e2741;
+      border-radius:16px;padding:22px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:flex;gap:12px;align-items:center}
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--orange);flex:0 0 10px}
+    .h1{font-weight:700;font-size:18px;margin:0 0 6px}
+    .p{margin:4px 0;color:var(--muted)}
+    .prog{height:4px;border-radius:4px;background:#1e2741;overflow:hidden;margin-top:14px}
+    .bar{width:0;height:100%;background:linear-gradient(90deg,var(--blue),var(--orange));animation:l 5s linear forwards}
+    @keyframes l{to{width:100%}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="row"><div class="dot"></div><div class="h1">IVM завантажується…</div></div>
+    <p class="p">Перевіряємо доступ у VETAi та готуємо персональну сторінку.</p>
+    <div class="prog"><div class="bar"></div></div>
+    <p class="p" id="status" style="margin-top:10px">З’єднання з сервером…</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const tg = window.Telegram?.WebApp;
+  tg?.ready(); tg?.expand();
+
+  // ===== НАЛАШТУВАННЯ =====
+  const DEFAULT_FALLBACK_URL = "https://vetstar.com.ua";
+  const WEBHOOK_URL = "https://n8n.vetai.win/webhook/681fc49a-7da6-41d7-97a3-718c1cbad8ab";
+  const ALLOWED_HOSTS = [
+    "vetstar.com.ua",
+    "vetai25.github.io",
+    "vetai.win",
+    "n8n.vetai.win"
+  ];
+  const TIMEOUT_MS = 5000;
+  // ========================
+
+  const status = (t)=>{ const el = document.getElementById("status"); if(el) el.textContent = t; };
+
+  // Безпечна перевірка домену цілі, щоб уникнути open-redirect
+  function isAllowedUrl(url){
+    try{
+      const u = new URL(url);
+      return ALLOWED_HOSTS.includes(u.hostname);
+    }catch{ return false; }
+  }
+
+  // Формування рядка параметрів
+  function toQuery(params){
+    const q = new URLSearchParams();
+    Object.entries(params||{}).forEach(([k,v])=>{
+      if(v !== undefined && v !== null) q.set(k, String(v));
+    });
+    return q.toString();
+  }
+
+  // Редірект з guard’ом
+  function go(url, params){
+    let target = url;
+    if(params && Object.keys(params).length){
+      const u = new URL(url);
+      const qs = toQuery(params);
+      if(qs) u.search = u.search ? (u.search + "&" + qs) : ("?" + qs);
+      target = u.toString();
+    }
+    if(isAllowedUrl(target)){ location.href = target; }
+    else { location.href = DEFAULT_FALLBACK_URL; }
+  }
+
+  // Збір телеметрії Telegram
+  const payload = {
+    source: "IVM-INDEX",
+    ts: new Date().toISOString(),
+    initData: tg?.initData || "",
+    initDataUnsafe: tg?.initDataUnsafe || {},
+    themeParams: tg?.themeParams || {},
+    platform: tg?.platform || "unknown",
+    version: tg?.version || "n/a",
+    locationHref: location.href
+  };
+
+  // Відправка з таймаутом 5с
+  const controller = new AbortController();
+  const t = setTimeout(()=>controller.abort(), TIMEOUT_MS);
+
+  async function run(){
+    try{
+      status("Перевірка доступу…");
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(t);
+
+      let data = null;
+      try { data = await res.json(); } catch(_){}
+
+      if(!res.ok || !data){
+        status("Сервер повернув помилку. Переходимо на сайт…");
+        return go(DEFAULT_FALLBACK_URL);
+      }
+
+      // Очікуваний формат відповіді:
+      // { ok: true, next_url: "https://…", params: { uid: 123, role: "manager", jwt: "..." } }
+      const { ok, next_url, params } = data;
+
+      if(ok && next_url && isAllowedUrl(next_url)){
+        status("Готово! Відкриваємо вашу сторінку…");
+        return go(next_url, params);
+      }else{
+        status("Доступ обмежено або сторінка не задана. Переходимо на сайт…");
+        return go(DEFAULT_FALLBACK_URL);
+      }
+
+    } catch(err){
+      status("Немає зв’язку з сервером. Відкриваємо сайт…");
+      return go(DEFAULT_FALLBACK_URL);
+    }
+  }
+
+  run();
+})();
+</script>
+</body>
+</html>
