@@ -92,6 +92,27 @@
     .row-warn  { background:var(--row-warn) }
     .row-bad   { background:var(--row-bad) }
 
+    .copyBtn {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 16px;
+      margin-left: 6px;
+    }
+.copyBtn:hover { opacity: 0.7; }
+
+.toast {
+      position: fixed;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      background: #333; color: #fff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      opacity: 0; transition: opacity .3s;
+      z-index: 1000;
+    }
+.toast.show { opacity: 1; }
+
     /* дрібнички доступності */
     .card:focus-visible{outline:2px solid #0284c7; outline-offset:2px}
   </style>
@@ -310,6 +331,7 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
             </div>
             <div class="date">${formatDateTime(o.IM_DATE)}</div>
             ${o.IM_ORGANISATION ? `<div style="margin-top:8px"><strong>Продавець:</strong> ${o.IM_ORGANISATION}</div>` : ''}
+            ${o.IM_ORG_PAYINFO ? `<button class="copyBtn" data-rekv="${encodeURIComponent(o.IM_ORG_PAYINFO)}">💳</button>` : ''}
           </div>
 
           <div class="badges">
@@ -372,6 +394,28 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
     });
     els.list.appendChild(frag);
   }
+
+  function showToast(msg){
+  let t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=> t.classList.add('show'));
+  setTimeout(()=> {
+    t.classList.remove('show');
+    setTimeout(()=> t.remove(), 300);
+  }, 1500);
+}
+
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.copyBtn');
+  if (!btn) return;
+  const text = decodeURIComponent(btn.dataset.rekv || '');
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(()=>{
+    showToast('Скопійовано в буфер');
+  });
+});
 
   function useCache(){
     try{
