@@ -309,6 +309,7 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
               <div class="client">${o.IM_CLIENT || '—'}</div>
             </div>
             <div class="date">${formatDateTime(o.IM_DATE)}</div>
+            ${o.IM_ORGANISATION ? `<div style="margin-top:8px"><strong>Продавець:</strong> ${o.IM_ORGANISATION}</div>` : ''}
           </div>
 
           <div class="badges">
