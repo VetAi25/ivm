@@ -185,7 +185,7 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
   function statusClass(s){
     s = (s||'').trim();
     if (s === 'Новий') return 'st-new';
-    if (s === 'Обробляеться (мен.)' || s === 'Обробляється (мен.)') return 'st-manager';
+    if (s === 'Обробляється (мен.)') return 'st-manager';
     if (s === 'Відправлено на склад') return 'st-to-warehouse';
     if (s === 'Збирається (скл.)') return 'st-picking';
     if (s === 'Зібрано (скл.)') return 'st-picked';
@@ -196,7 +196,7 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
   function statusIcon(s){
     s = (s||'').trim();
     if (s === 'Новий') return '🆕';
-    if (s === 'Обробляеться (мен.)' || s === 'Обробляється (мен.)') return '👤';
+    if (s === 'Обробляється (мен.)') return '👤';
     if (s === 'Відправлено на склад') return '📦';
     if (s === 'Збирається (скл.)') return '🛠️';
     if (s === 'Зібрано (скл.)') return '✅';
