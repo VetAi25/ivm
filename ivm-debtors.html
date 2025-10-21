@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Заборгованість клієнтів</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --bg:#fafafa; --fg:#0f172a; --muted:#6b7280; --card:#ffffff; --bd:#e5e7eb;
+  --green:#bbf7d0; --red:#fecaca; --yellow:#fef9c3;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica Neue,Arial}
+.container{max-width:840px;margin:0 auto;padding:8px}
+header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.95);backdrop-filter:saturate(120%) blur(8px);border-bottom:1px solid var(--bd)}
+h1{font-size:18px;margin:0}
+.btn{border:1px solid #0284c7;background:#0284c7;color:#fff;border-radius:12px;padding:8px 12px;font-weight:600}
+.btn[disabled]{border-color:#d1d5db;background:#e5e7eb;color:#6b7280}
+.list{list-style:none;padding:0;margin:12px 0 48px;display:grid;gap:10px}
+.card{border-radius:16px;box-shadow:0 1px 2px #0001,0 6px 16px #0001;overflow:hidden;background:var(--card)}
+.card .p{padding:12px}
+.client{font-weight:700;font-size:15px;margin-bottom:6px}
+.total{font-weight:600}
+.org{border-top:1px solid var(--bd);margin-top:8px;padding-top:8px}
+.org-line{display:flex;justify-content:space-between;padding:2px 0;font-size:13px}
+.pos{color:#166534}
+.neg{color:#991b1b}
+.zero{color:#6b7280}
+footer{text-align:center;color:var(--muted);margin:24px 0 56px;font-size:12px}
+.loader{text-align:center;color:var(--muted);padding:24px}
+.error{color:#dc2626;text-align:center;margin:16px 0}
+.summary{background:#fff;border-radius:12px;border:1px solid var(--bd);padding:12px;text-align:center;font-weight:600;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="container" style="padding:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <h1>Заборгованість</h1>
+      <button id="refreshBtn" class="btn">Оновити</button>
+    </div>
+    <div id="summary" class="summary">Завантаження...</div>
+    <div id="error" class="error" hidden></div>
+  </div>
+</header>
+
+<main class="container">
+  <ul id="list" class="list"></ul>
+  <div id="empty" class="muted" style="text-align:center;margin-top:24px" hidden>Немає боргів для відображення</div>
+  <footer>VETAi · Vetstar Group</footer>
+</main>
+
+<script>
+(() => {
+  const WEBHOOK_URL = 'https://n8n.vetai.win/webhook/e59d2fe6-3edc-46c8-9bf9-74bf564f0c92';
+  const tg = window.Telegram?.WebApp;
+  tg?.ready?.(); tg?.expand?.();
+
+  const els = {
+    list: document.getElementById('list'),
+    empty: document.getElementById('empty'),
+    summary: document.getElementById('summary'),
+    error: document.getElementById('error'),
+    refreshBtn: document.getElementById('refreshBtn'),
+  };
+
+  function fmt(n){
+    return Number(n||0).toLocaleString('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+
+  function getClass(v){
+    if (v>0) return 'pos';
+    if (v<0) return 'neg';
+    return 'zero';
+  }
+
+  async function loadData(){
+    try{
+      els.error.hidden = true;
+      els.list.innerHTML = '<div class="loader">Завантаження...</div>';
+      const uid = tg?.initDataUnsafe?.user?.id || null;
+      const res = await fetch(WEBHOOK_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ uid })
+      });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const data = await res.json();
+      render(data);
+    }catch(e){
+      els.error.textContent = '⚠️ '+(e.message||'Помилка завантаження');
+      els.error.hidden = false;
+      els.list.innerHTML='';
+    }
+  }
+
+  function render(data){
+    els.list.innerHTML='';
+    const total = data.find(x=>x.Контрагент.includes('Усього'));
+    if (total){
+      els.summary.textContent = `💰 Загальна заборгованість: ${fmt(total.ЗагальнаЗаборгованість)} грн`;
+    } else els.summary.textContent='—';
+
+    const clients = data.filter(x=>!x.Контрагент.includes('Усього'))
+                        .sort((a,b)=>b.ЗагальнаЗаборгованість - a.ЗагальнаЗаборгованість);
+
+    if (!clients.length){ els.empty.hidden=false; return; }
+    els.empty.hidden=true;
+
+    const frag = document.createDocumentFragment();
+    for (const c of clients){
+      const li = document.createElement('li');
+      li.className='card';
+      const orgs = (c.Організації||[])
+        .map(o=>`<div class="org-line"><span>${o.Організація}</span><span class="${getClass(o.Заборгованість)}">${fmt(o.Заборгованість)} грн</span></div>`)
+        .join('');
+      li.innerHTML = `
+        <div class="p">
+          <div class="client">${c.Контрагент}</div>
+          <div class="total ${getClass(c.ЗагальнаЗаборгованість)}">
+            ${fmt(c.ЗагальнаЗаборгованість)} грн
+          </div>
+          ${orgs ? `<div class="org">${orgs}</div>` : ''}
+        </div>`;
+      frag.appendChild(li);
+    }
+    els.list.appendChild(frag);
+  }
+
+  els.refreshBtn.addEventListener('click',loadData);
+  loadData();
+})();
+</script>
+</body>
+</html>
