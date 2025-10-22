@@ -57,6 +57,11 @@ footer{text-align:center;color:var(--muted);margin:24px 0 56px;font-size:12px}
   const tg = window.Telegram?.WebApp;
   tg?.ready?.(); tg?.expand?.();
 
+  const urlCtx = new URL(location.href);
+  const q = Object.fromEntries(urlCtx.searchParams.entries());
+  const uidFromTG = tg?.initDataUnsafe?.user?.id ? String(tg.initDataUnsafe.user.id) : '';
+  const lang = tg?.initDataUnsafe?.user?.language_code || 'uk';
+
   const els = {
     list: document.getElementById('list'),
     empty: document.getElementById('empty'),
@@ -70,21 +75,19 @@ footer{text-align:center;color:var(--muted);margin:24px 0 56px;font-size:12px}
   }
 
   function getClass(v){
-    if (v>0) return 'pos';
-    if (v<0) return 'neg';
-    return 'zero';
+    if (v > 0) return 'neg';   // тепер борг — червоний
+    if (v < 0) return 'pos';   // переплата — зелена
+  return 'zero';
   }
-
+  
   async function loadData(){
+    els.error.hidden = true;
+    els.list.innerHTML = '<div class="loader">Завантаження...</div>';
     try{
-      els.error.hidden = true;
-      els.list.innerHTML = '<div class="loader">Завантаження...</div>';
-      const uid = tg?.initDataUnsafe?.user?.id || null;
-      const res = await fetch(WEBHOOK_URL, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ uid })
-      });
+      const u = new URL(WEBHOOK_URL);
+      u.searchParams.set('uid', q.uid || uidFromTG || '');
+      u.searchParams.set('lang', lang);
+      const res = await fetch(u.toString(), { method:'GET', headers:{'Accept':'application/json'} });
       if (!res.ok) throw new Error('HTTP '+res.status);
       const data = await res.json();
       render(data);
@@ -118,9 +121,7 @@ footer{text-align:center;color:var(--muted);margin:24px 0 56px;font-size:12px}
       li.innerHTML = `
         <div class="p">
           <div class="client">${c.Контрагент}</div>
-          <div class="total ${getClass(c.ЗагальнаЗаборгованість)}">
-            ${fmt(c.ЗагальнаЗаборгованість)} грн
-          </div>
+          <div class="total ${getClass(c.ЗагальнаЗаборгованість)}">${fmt(c.ЗагальнаЗаборгованість)} грн</div>
           ${orgs ? `<div class="org">${orgs}</div>` : ''}
         </div>`;
       frag.appendChild(li);
