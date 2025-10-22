@@ -20,14 +20,19 @@ h1{font-size:18px;margin:0}
 .btn{border:1px solid #0284c7;background:#0284c7;color:#fff;border-radius:12px;padding:8px 12px;font-weight:600}
 .select{border:1px solid var(--bd);border-radius:12px;padding:10px;font-size:14px;background:#fff}
 
-ul.list{list-style:none;padding:0;margin:12px 0 48px;display:grid;gap:10px}
-.card{border-radius:16px;box-shadow:0 1px 2px #0001, 0 6px 16px #0001;overflow:hidden;background:var(--card);cursor:pointer}
-.card > .p{padding:12px}
-.client{font-weight:700;font-size:15px}
+.totalBox{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;font-size:15px;font-weight:700;
+}
 .amount{font-weight:700;font-size:16px}
 .pos{color:var(--green)}   /* переплата */
 .neg{color:var(--red)}     /* борг */
 .zero{color:var(--zero)}
+
+ul.list{list-style:none;padding:0;margin:12px 0 48px;display:grid;gap:10px}
+.card{border-radius:16px;box-shadow:0 1px 2px #0001, 0 6px 16px #0001;overflow:hidden;background:var(--card);cursor:pointer}
+.card > .p{padding:12px}
+.client{font-weight:700;font-size:15px}
 .orgsPanel{
   overflow:hidden;
   height:0;
@@ -47,12 +52,18 @@ footer{color:var(--muted);text-align:center;margin:24px 0 56px}
       <h1>Заборгованість</h1>
       <button id="refreshBtn" class="btn">Оновити</button>
     </div>
-    <div class="row" style="margin-top:8px">
+
+    <div class="row" style="justify-content:space-between;margin-top:6px">
       <select id="sortSelect" class="select">
         <option value="sum">За сумою</option>
         <option value="name">За алфавітом</option>
       </select>
+      <div id="totalBox" class="totalBox" hidden>
+        <span>Усього:</span>
+        <span id="totalAmount" class="amount"></span>
+      </div>
     </div>
+
     <div id="error" class="error" hidden></div>
   </div>
 </header>
@@ -65,7 +76,7 @@ footer{color:var(--muted);text-align:center;margin:24px 0 56px}
 
 <script>
 (() => {
-const WEBHOOK_URL = 'https://n8n.vetai.win/webhook/e59d2fe6-3edc-46c8-9bf9-74bf564f0c92';
+const WEBHOOK_URL = 'https://n8n.vetai.win/webhook/YOUR_WEBHOOK_ID_HERE';
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.(); tg?.expand?.();
@@ -74,8 +85,8 @@ const q = Object.fromEntries(urlCtx.searchParams.entries());
 const TG_USER = tg?.initDataUnsafe?.user || {};
 const uidFromTG = TG_USER?.id ? String(TG_USER.id) : "";
 
-const LS_KEY_DATA = 'debts_cache_v3';
-const LS_KEY_TS = 'debts_cache_ts_v3';
+const LS_KEY_DATA = 'debts_cache_v4';
+const LS_KEY_TS = 'debts_cache_ts_v4';
 const COOLDOWN_MS = 60_000; // 1 хвилина
 
 const els = {
@@ -84,6 +95,8 @@ const els = {
   error: document.getElementById('error'),
   refreshBtn: document.getElementById('refreshBtn'),
   sortSelect: document.getElementById('sortSelect'),
+  totalBox: document.getElementById('totalBox'),
+  totalAmount: document.getElementById('totalAmount'),
 };
 
 function formatUAH(v){
@@ -96,7 +109,6 @@ function getClass(v){
   if (v < 0) return 'pos';   // переплата → зелений
   return 'zero';
 }
-
 function setError(msg){
   if (!msg){ els.error.hidden = true; els.error.textContent=''; return; }
   els.error.hidden = false; els.error.textContent = msg;
@@ -115,7 +127,6 @@ function useCache(){
   }catch{}
   return false;
 }
-
 function updateRefreshButton(){
   const last = Number(localStorage.getItem(LS_KEY_TS) || 0);
   const left = Math.max(0, COOLDOWN_MS - (Date.now() - last));
@@ -166,7 +177,7 @@ async function fetchData(force){
   }
 }
 
-// Анімація акордеону
+// Акордеон
 function openPanel(panel){
   if (!panel) return;
   panel.style.display='block';
@@ -189,10 +200,18 @@ function afterTransition(e){
 
 function render(){
   const sortMode = els.sortSelect.value || 'sum';
-  const clients = data.filter(x => !x.Контрагент.includes('Усього'))
+  const total = data.find(x => x.Контрагент?.includes('Усього'));
+  const clients = data.filter(x => !x.Контрагент?.includes('Усього'))
     .sort((a,b) => sortMode==='name'
       ? a.Контрагент.localeCompare(b.Контрагент,'uk')
       : b.ЗагальнаЗаборгованість - a.ЗагальнаЗаборгованість);
+
+  // загальна сума у хедері
+  if (total){
+    els.totalBox.hidden = false;
+    els.totalAmount.textContent = formatUAH(total.ЗагальнаЗаборгованість);
+    els.totalAmount.className = `amount ${getClass(total.ЗагальнаЗаборгованість)}`;
+  } else els.totalBox.hidden = true;
 
   els.list.innerHTML='';
   if (clients.length===0){ els.empty.hidden=false; return; }
@@ -232,12 +251,9 @@ function render(){
     panel.style.display='none';
 
     li.addEventListener('click',()=>{
-      // згортання попередньої відкритої
       if (openRef && openRef!==c.Контрагент){
         const openLi=els.list.querySelector(`li[data-ref="${openRef}"]`);
-        if (openLi){
-          closePanel(openLi.querySelector('.orgsPanel'));
-        }
+        if (openLi){ closePanel(openLi.querySelector('.orgsPanel')); }
         openRef=null;
       }
       const isOpen=panel.style.display!=='none' && panel.style.height!=='0px';
@@ -251,22 +267,6 @@ function render(){
 
     frag.appendChild(li);
   }
-
-  // додаємо підсумок унизу
-  const total=data.find(x=>x.Контрагент.includes('Усього'));
-  if (total){
-    const li=document.createElement('li');
-    li.className='card';
-    li.innerHTML=`
-      <div class="p">
-        <div class="row" style="justify-content:space-between">
-          <div class="client">${total.Контрагент}</div>
-          <div class="amount ${getClass(total.ЗагальнаЗаборгованість)}">${formatUAH(total.ЗагальнаЗаборгованість)}</div>
-        </div>
-      </div>`;
-    frag.appendChild(li);
-  }
-
   els.list.appendChild(frag);
 }
 
