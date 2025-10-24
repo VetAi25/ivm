@@ -13,8 +13,6 @@
     --ink:#0b1b3a;
     --muted:#6b7a90;
     --blue:#1f6feb;
-    --blue-600:#1656b8;
-    --orange:#ff8a3d;
     --ring:#dde7ff;
     --ok:#12b981;
     --err:#ef4444;
@@ -69,12 +67,6 @@
   .foot{
     margin-top:24px;font-size:12px;color:var(--muted);text-align:center
   }
-  .skeleton{
-    background:linear-gradient(90deg,#eef3ff 25%,#f7faff 37%,#eef3ff 63%);
-    background-size:400% 100%;animation:sk 1.4s ease infinite
-  }
-  @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
-  .sktext{height:14px;border-radius:6px}
 </style>
 </head>
 <body>
@@ -104,10 +96,9 @@
 
 <script>
 (() => {
-  const WEBHOOK_URL = "https://n8n.vetai.win/webhook/15e5d5bf-ce7b-4850-8f1b-7bb7d28ecff9"; // 🔗 заміни на свій
-  
+  const WEBHOOK_URL = "https://n8n.vetai.win/webhook/15e5d5bf-ce7b-4850-8f1b-7bb7d28ecff9"; // 👉 заміни своїм
   const tg = window.Telegram?.WebApp;
-  if(tg){ tg.ready(); tg.expand(); }
+  if (tg) { tg.ready(); tg.expand(); }
 
   const els = {
     greeting: document.getElementById("greeting"),
@@ -126,28 +117,31 @@
 
   function orderEmoji(c){
     c = Number(c) || 0;
-    if(c === 0) return "😴";
-    if(c <= 5) return "😕";
-    if(c <= 10) return "🙂";
-    if(c <= 15) return "😄";
-    if(c <= 20) return "😁";
-    if(c <= 30) return "😎";
-    if(c <= 40) return "🤑";
+    if (c === 0) return "😴";
+    if (c <= 5) return "😕";
+    if (c <= 10) return "🙂";
+    if (c <= 15) return "😄";
+    if (c <= 20) return "😁";
+    if (c <= 30) return "😎";
+    if (c <= 40) return "🤑";
     return "🤯";
   }
 
   async function loadData(){
     try{
-      const telegram_id = tg?.initDataUnsafe?.user?.id || new URLSearchParams(location.search).get("id");
-      if(!telegram_id) throw new Error("Немає Telegram ID");
+      const telegram_id = tg?.initDataUnsafe?.user?.id || "";
+      const url = new URL(WEBHOOK_URL);
+      url.searchParams.set("telegram_id", telegram_id);
+      url.searchParams.set("source", "IVM-DASHBOARD");
+      url.searchParams.set("timestamp", new Date().toISOString());
 
-      // Виконуємо GET-запит до n8n
-      const url = `${WEBHOOK_URL}?telegram_id=${encodeURIComponent(telegram_id)}&source=IVM-DASHBOARD&_t=${Date.now()}`;
-      const res = await fetch(url, { method: "GET", headers: {"Accept":"application/json"} });
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const res = await fetch(url.toString(), { method: "GET", headers: {"Accept": "application/json"} });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      if(!data.ok) throw new Error("access denied");
+      let data = await res.json();
+      if (Array.isArray(data)) data = data[0]; // ⬅️ Підтримка формату [ {...} ]
+
+      if (!data?.ok) throw new Error("access denied");
 
       els.greeting.textContent = greetingText(data.first_name || "");
       els.ordersCount.textContent = data.orders_count ?? 0;
@@ -155,14 +149,19 @@
       els.ordersSum.textContent = (data.orders_sum ?? 0).toLocaleString("uk-UA") + " грн";
       els.eventsToday.textContent = data.events_today ?? "0";
       els.eventsPlanned.textContent = data.events_planned ?? "0";
-
-    }catch(err){
+    } catch(err){
       console.warn("Fetch error:", err);
       els.greeting.textContent = "⚠️ Дані недоступні";
+      els.ordersCount.textContent = "—";
+      els.ordersSum.textContent = "— грн";
+      els.eventsToday.textContent = "—";
+      els.eventsPlanned.textContent = "—";
     }
   }
 
+  // автозапуск при завантаженні
   document.addEventListener("DOMContentLoaded", loadData);
+  // оновлення при поверненні на сторінку
   window.addEventListener("pageshow", e => { if(e.persisted) loadData(); });
 })();
 </script>
