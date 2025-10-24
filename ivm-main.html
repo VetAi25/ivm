@@ -13,9 +13,9 @@
     --ink:#0b1b3a;
     --muted:#6b7a90;
     --blue:#1f6feb;
+    --green:#12b981;
+    --orange:#f59e0b;
     --ring:#dde7ff;
-    --ok:#12b981;
-    --err:#ef4444;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -40,7 +40,17 @@
   .hello{font-weight:700;font-size:18px;margin-bottom:8px}
   .stats{font-size:14px;line-height:1.6}
   .stats b{font-weight:700}
+  .stats b.orders{color:var(--blue)}
+  .stats b.sum{color:var(--green)}
+  .stats b.events{color:var(--orange)}
   .stats .emoji{font-size:18px;margin-left:6px}
+  .motivation{
+    margin-top:8px;
+    font-size:13px;
+    color:var(--muted);
+    font-style:italic;
+    transition:opacity .3s ease;
+  }
   .grid{
     margin-top:18px;
     display:grid;
@@ -59,13 +69,16 @@
   }
   .btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(31,111,235,.08)}
   .btn:active{transform:none}
-  .btn.disabled{
-    opacity:.55;
-    pointer-events:none;
-  }
+  .btn.disabled{opacity:.55;pointer-events:none;}
   .btn .emoji{font-size:18px}
-  .foot{
-    margin-top:24px;font-size:12px;color:var(--muted);text-align:center
+  .foot{margin-top:24px;font-size:12px;color:var(--muted);text-align:center}
+
+  /* Анімація пульсу */
+  .pulse {animation:pulse 450ms ease;}
+  @keyframes pulse{
+    0%{transform:scale(1);filter:brightness(1);}
+    40%{transform:scale(1.06);filter:brightness(1.15);}
+    100%{transform:scale(1);filter:brightness(1);}
   }
 </style>
 </head>
@@ -73,12 +86,19 @@
 <div class="wrap">
   <div class="card greeting" id="greetingCard">
     <div class="hello" id="greeting">Добрий день, ...</div>
-    <div class="stats" id="stats">
-      <div>Сьогодні замовлень: <b id="ordersCount">—</b> <span class="emoji" id="ordersEmoji">😴</span></div>
-      <div>Сума замовлень: <b id="ordersSum">— грн</b></div>
-      <div>Подій компанії: <b id="eventsToday">—</b></div>
-      <div>Запланованих подій: <b id="eventsPlanned">—</b></div>
+    <div class="stats">
+      <div>Сьогодні замовлень:
+        <b id="ordersCount" class="orders">—</b>
+        <span class="emoji" id="ordersEmoji">😴</span>
+      </div>
+      <div>Сума замовлень:
+        <b id="ordersSum" class="sum">— грн</b>
+        <span class="emoji" id="sumEmoji">😴</span>
+      </div>
+      <div>Подій компанії: <b id="eventsToday" class="events">—</b></div>
+      <div>Запланованих подій: <b id="eventsPlanned" class="events">—</b></div>
     </div>
+    <div class="motivation" id="motivation">Завантаження даних...</div>
   </div>
 
   <div class="grid">
@@ -87,6 +107,7 @@
     <div class="btn disabled"><span class="emoji">🗂️</span> Акти звірок</div>
     <div class="btn disabled"><span class="emoji">📅</span> Події компанії</div>
     <div class="btn disabled"><span class="emoji">🧭</span> План дня</div>
+    <div class="btn disabled"><span class="emoji">🙍‍♂️</span> Новий клієнт</div>
   </div>
 
   <div class="foot">
@@ -96,7 +117,7 @@
 
 <script>
 (() => {
-  const WEBHOOK_URL = "https://n8n.vetai.win/webhook/15e5d5bf-ce7b-4850-8f1b-7bb7d28ecff9"; // 👉 заміни своїм
+  const WEBHOOK_URL = "https://n8n.vetai.win/webhook/15e5d5bf-ce7b-4850-8f1b-7bb7d28ecff9";
   const tg = window.Telegram?.WebApp;
   if (tg) { tg.ready(); tg.expand(); }
 
@@ -105,8 +126,10 @@
     ordersCount: document.getElementById("ordersCount"),
     ordersEmoji: document.getElementById("ordersEmoji"),
     ordersSum: document.getElementById("ordersSum"),
+    sumEmoji: document.getElementById("sumEmoji"),
     eventsToday: document.getElementById("eventsToday"),
     eventsPlanned: document.getElementById("eventsPlanned"),
+    motivation: document.getElementById("motivation"),
   };
 
   function greetingText(name){
@@ -123,9 +146,51 @@
     if (c <= 15) return "😄";
     if (c <= 20) return "😁";
     if (c <= 30) return "😎";
-    if (c <= 40) return "🤑";
+    if (c <= 40) return "💪";
+    return "🚀";
+  }
+
+  function sumEmoji(sum){
+    sum = Number(sum) || 0;
+    if (sum === 0) return "😴";
+    if (sum < 5000) return "😕";
+    if (sum < 20000) return "🙂";
+    if (sum < 50000) return "😄";
+    if (sum < 100000) return "😎";
+    if (sum < 200000) return "🤑";
     return "🤯";
   }
+
+  // Мотиваційні повідомлення
+  function motivationText(c, sum){
+    if (c === 0) return "Розігріваємось ☕️ — усе попереду!";
+    if (sum < 5000) return "Початок є, рухаємось 💪";
+    if (sum < 20000) return "Добрий день для продажів 😎";
+    if (sum < 50000) return "Справжній драйв, тримай темп 🚀";
+    if (sum < 100000) return "Ти на шляху до рекорду 🏆";
+    if (sum < 200000) return "Вражаючий результат! 🔥";
+    return "Фантастика! Менеджер дня 🌟";
+  }
+
+  // --- Анімація чисел ---
+  function animateNumber(el, to, {duration=700, format} = {}){
+    const from = Number((el.dataset.value ?? '').replace(/[^\d.-]/g,'')) || 0;
+    const target = Number(to) || 0;
+    const start = performance.now();
+    const ease = t => t<.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2;
+    function frame(now){
+      const p = Math.min(1, (now - start)/duration);
+      const v = from + (target - from) * ease(p);
+      el.textContent = format ? format(v) : Math.round(v);
+      if (p < 1) requestAnimationFrame(frame);
+      else el.dataset.value = String(target);
+    }
+    el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+    requestAnimationFrame(frame);
+  }
+
+  const fmtInt = v => Math.round(v).toLocaleString('uk-UA');
+  const fmtUAH = v => `${(Math.round(v*100)/100).toLocaleString('uk-UA')} грн`;
 
   async function loadData(){
     try{
@@ -139,16 +204,24 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       let data = await res.json();
-      if (Array.isArray(data)) data = data[0]; // ⬅️ Підтримка формату [ {...} ]
-
+      if (Array.isArray(data)) data = data[0];
       if (!data?.ok) throw new Error("access denied");
 
       els.greeting.textContent = greetingText(data.first_name || "");
-      els.ordersCount.textContent = data.orders_count ?? 0;
+      animateNumber(els.ordersCount, data.orders_count ?? 0, { format: fmtInt });
+      animateNumber(els.ordersSum,   data.orders_sum   ?? 0, { format: fmtUAH });
       els.ordersEmoji.textContent = orderEmoji(data.orders_count);
-      els.ordersSum.textContent = (data.orders_sum ?? 0).toLocaleString("uk-UA") + " грн";
-      els.eventsToday.textContent = data.events_today ?? "0";
-      els.eventsPlanned.textContent = data.events_planned ?? "0";
+      els.sumEmoji.textContent    = sumEmoji(data.orders_sum);
+      animateNumber(els.eventsToday,   data.events_today   ?? 0, { format: fmtInt });
+      animateNumber(els.eventsPlanned, data.events_planned ?? 0, { format: fmtInt });
+
+      // мотивація
+      els.motivation.style.opacity = 0;
+      setTimeout(() => {
+        els.motivation.textContent = motivationText(data.orders_count, data.orders_sum);
+        els.motivation.style.opacity = 1;
+      }, 300);
+
     } catch(err){
       console.warn("Fetch error:", err);
       els.greeting.textContent = "⚠️ Дані недоступні";
@@ -156,13 +229,15 @@
       els.ordersSum.textContent = "— грн";
       els.eventsToday.textContent = "—";
       els.eventsPlanned.textContent = "—";
+      els.motivation.textContent = "Немає зв'язку із сервером 😕";
     }
   }
 
-  // автозапуск при завантаженні
   document.addEventListener("DOMContentLoaded", loadData);
-  // оновлення при поверненні на сторінку
   window.addEventListener("pageshow", e => { if(e.persisted) loadData(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") loadData();
+  });
 })();
 </script>
 </body>
