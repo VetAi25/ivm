@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ВЕТСТАР — Анкета на онбординг</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --brand: #4BB8E8;
+    --cta: #2E9FD0;
+    --navy: #1A3A4A;
+    --page: #EEF7FC;
+    --card: #FFFFFF;
+    --ink: #16242C;
+    --ink-soft: #5A7180;
+    --line: #D7E8F2;
+    --danger: #D6483A;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    line-height: 1.5;
+    padding-bottom: 40px;
+  }
+
+  header{
+    background: var(--navy);
+    color: #fff;
+    padding: 22px 20px 20px;
+  }
+
+  .logo-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom: 14px;
+  }
+  .logo-mark{
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    background: var(--brand);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size: 14px;
+    color: var(--navy);
+    flex-shrink:0;
+  }
+  .logo-row span{
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.03em;
+  }
+
+  header h1{
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    line-height: 1.3;
+  }
+  header p{
+    font-size: 13px;
+    color: #C3DCE8;
+    margin: 0;
+  }
+
+  .who{
+    margin: 14px 20px 0;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    display:flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .who b{ color: var(--navy); }
+
+  main{ max-width: 640px; margin: 0 auto; padding: 0 20px; }
+
+  form{ margin-top: 18px; }
+
+  .section{
+    background: var(--card);
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    padding: 20px 18px;
+    margin-bottom: 14px;
+  }
+
+  .section-head{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .step-num{
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--cta);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .section-head h2{
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--navy);
+  }
+
+  .field{ margin-bottom: 14px; }
+  .field:last-child{ margin-bottom: 0; }
+
+  .row2{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  label{
+    display:block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 5px;
+  }
+  label .req{ color: var(--danger); }
+  label .opt{ color: var(--ink-soft); font-weight: 400; font-size: 11.5px; }
+
+  input[type="text"], input[type="tel"], input[type="email"], input[type="date"], select, textarea{
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    border-radius: 8px;
+  }
+  input:focus, select:focus, textarea:focus{
+    outline: none;
+    border-color: var(--cta);
+    box-shadow: 0 0 0 3px rgba(46,159,208,0.15);
+  }
+  textarea{ resize: vertical; min-height: 70px; }
+
+  select{
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235A7180' stroke-width='1.6' fill='none' fill-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 34px;
+  }
+
+  /* так/ні toggle */
+  .yesno{
+    display:flex;
+    gap: 10px;
+  }
+  .yesno label{
+    flex:1;
+    margin:0;
+    text-align:center;
+    padding: 11px 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .yesno input{ display:none; }
+  .yesno input:checked + label{
+    background: var(--cta);
+    border-color: var(--cta);
+    color: #fff;
+  }
+
+  .checklist{
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line);
+    display: none;
+  }
+  .checklist.show{ display:block; }
+  .checklist p.hint{
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+  .check-item{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .check-item:last-child{ border-bottom: none; }
+  .check-item input{
+    width: 18px; height: 18px;
+    accent-color: var(--cta);
+    flex-shrink:0;
+  }
+  .check-item span{ font-size: 14px; font-weight: 500; }
+
+  .actions{ padding: 6px 4px 0; }
+
+  button[type="submit"]{
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    background: var(--cta);
+    color: #fff;
+    border: none;
+    padding: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  button[type="submit"]:active{ background: var(--navy); }
+  button[type="submit"]:disabled{ opacity: 0.55; }
+
+  .status{
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--danger);
+    text-align:center;
+  }
+
+  .success{
+    display:none;
+    background: var(--card);
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    padding: 34px 22px;
+    text-align:center;
+    margin-top: 18px;
+  }
+  .success.show{ display:block; }
+  .success .check{
+    width: 48px; height:48px;
+    border-radius: 50%;
+    background: var(--cta);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin: 0 auto 14px;
+    font-size: 22px;
+  }
+  .success h2{ font-size: 17px; color: var(--navy); margin: 0 0 6px; }
+  .success p{ font-size: 13.5px; color: var(--ink-soft); margin: 0 0 18px; }
+  .success button{
+    background:none;
+    border: 1px solid var(--line);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    color: var(--ink);
+    cursor:pointer;
+  }
+
+  footer{
+    max-width: 640px;
+    margin: 22px auto 0;
+    padding: 0 16px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    text-align:center;
+  }
+
+  @media (prefers-reduced-motion: reduce){ * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-row">
+    <div class="logo-mark">VS</div>
+    <span>ВЕТСТАР</span>
+  </div>
+  <h1>Анкета на онбординг нового співробітника</h1>
+  <p>Попередній збір інформації про кандидата для підготовки до онбордингу.</p>
+</header>
+
+<div class="who" id="whoBlock">
+  <span>Подано від: <b id="whoName">—</b></span>
+</div>
+
+<main>
+  <form id="onboardingForm">
+
+    <div class="section">
+      <div class="section-head"><div class="step-num">1</div><h2>Кандидат</h2></div>
+      <div class="field">
+        <label>ПІБ кандидата <span class="req">*</span></label>
+        <input type="text" name="candidateName" required autocomplete="off">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Телефон <span class="req">*</span></label>
+          <input type="tel" name="candidatePhone" required placeholder="+380" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Мейл <span class="opt">якщо є</span></label>
+          <input type="email" name="candidateEmail" autocomplete="off">
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Дата народження <span class="req">*</span></label>
+          <input type="date" name="birthDate" required>
+        </div>
+        <div class="field">
+          <label>Місто (адреса проживання) <span class="req">*</span></label>
+          <input type="text" name="city" required autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="step-num">2</div><h2>Посада та умови</h2></div>
+      <div class="row2">
+        <div class="field">
+          <label>Відділ <span class="req">*</span></label>
+          <select name="department" required>
+            <option value="">Оберіть…</option>
+            <option>Продажі</option>
+            <option>Склад</option>
+            <option>Логістика</option>
+            <option>Маркетинг</option>
+            <option>Операційний</option>
+            <option>Бухгалтерія</option>
+            <option>ІТ</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Посада <span class="req">*</span></label>
+          <input type="text" name="position" required autocomplete="off">
+        </div>
+      </div>
+      <div class="field">
+        <label>Графік роботи <span class="req">*</span></label>
+        <input type="text" name="schedule" required placeholder="Наприклад: пн–пт, 9:00–18:00" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Керівник <span class="opt">хто навчає і контролює роботу</span> <span class="req">*</span></label>
+        <input type="text" name="manager" required autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Планова дата виходу <span class="req">*</span></label>
+        <input type="date" name="startDate" required>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="step-num">3</div><h2>Технічне забезпечення</h2></div>
+      <div class="field">
+        <label>Потребує технічне забезпечення? <span class="req">*</span></label>
+        <div class="yesno">
+          <input type="radio" name="needsProvisioning" value="yes" id="prov-yes" required>
+          <label for="prov-yes">Так</label>
+          <input type="radio" name="needsProvisioning" value="no" id="prov-no">
+          <label for="prov-no">Ні</label>
+        </div>
+      </div>
+
+      <div class="checklist" id="provChecklist">
+        <p class="hint">Відмітьте, що саме потрібно підготувати:</p>
+        <label class="check-item"><input type="checkbox" name="item_phone"><span>Телефон</span></label>
+        <label class="check-item"><input type="checkbox" name="item_tablet"><span>Планшет</span></label>
+        <label class="check-item"><input type="checkbox" name="item_laptop"><span>Ноутбук</span></label>
+        <label class="check-item"><input type="checkbox" name="item_desktop"><span>Настільний ПК (робоче місце в офісі)</span></label>
+        <label class="check-item"><input type="checkbox" name="item_tracker"><span>Трекер</span></label>
+        <label class="check-item"><input type="checkbox" name="item_corp_email"><span>Корпоративна пошта</span></label>
+        <label class="check-item"><input type="checkbox" name="item_impulse_kpk"><span>Ліцензія ІмпульсКПК</span></label>
+        <label class="check-item"><input type="checkbox" name="item_bas"><span>Акаунт в BAS</span></label>
+        <label class="check-item"><input type="checkbox" name="item_uspacy"><span>Акаунт в CRM Uspacy</span></label>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="step-num">4</div><h2>Коментар</h2></div>
+      <div class="field">
+        <textarea name="comment" placeholder="Будь-які особливості, про які варто знати наперед"></textarea>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" id="submitBtn">Надіслати анкету</button>
+      <div class="status" id="statusMsg"></div>
+    </div>
+  </form>
+
+  <div class="success" id="successView">
+    <div class="check">✓</div>
+    <h2>Анкету надіслано</h2>
+    <p>Дані зафіксовано та передано на обробку.</p>
+    <button type="button" id="resetBtn">Заповнити ще одну анкету</button>
+  </div>
+</main>
+
+<footer>ВЕТСТАР | Для внутрішнього використання</footer>
+
+<script>
+  // ЗАМІНІТЬ на реальний Production URL вебхука з n8n (Webhook node → Production URL)
+  const WEBHOOK_URL = "https://n8n.vetai.win/webhook/61bece2e-8821-44b1-b2f4-afc34ff619f4";
+
+  // --- Telegram identification ---
+  let tgUser = null;
+  try{
+    if(window.Telegram && window.Telegram.WebApp){
+      const tg = window.Telegram.WebApp;
+      tg.ready();
+      tg.expand();
+      if(tg.initDataUnsafe && tg.initDataUnsafe.user){
+        tgUser = tg.initDataUnsafe.user;
+      }
+    }
+  }catch(e){ /* not opened inside Telegram — proceed without identification */ }
+
+  const whoName = document.getElementById('whoName');
+  if(tgUser){
+    whoName.textContent = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ')
+      + (tgUser.username ? ' (@' + tgUser.username + ')' : '');
+  }else{
+    whoName.textContent = 'анкета відкрита поза Telegram';
+    document.getElementById('whoBlock').style.opacity = '0.7';
+  }
+
+  // --- yes/no toggle for provisioning checklist ---
+  const provChecklist = document.getElementById('provChecklist');
+  document.querySelectorAll('input[name="needsProvisioning"]').forEach(r => {
+    r.addEventListener('change', () => {
+      provChecklist.classList.toggle('show', r.value === 'yes' && r.checked);
+    });
+  });
+
+  const form = document.getElementById('onboardingForm');
+  const successView = document.getElementById('successView');
+  const submitBtn = document.getElementById('submitBtn');
+  const statusMsg = document.getElementById('statusMsg');
+
+  function buildPayload(formData){
+    const get = (k) => (formData.get(k) || '').toString().trim();
+    const checked = (k) => formData.get(k) === 'on';
+    const needsProvisioning = get('needsProvisioning') === 'yes';
+
+    return {
+      submittedAt: new Date().toISOString(),
+      telegramUser: tgUser ? {
+        id: tgUser.id,
+        username: tgUser.username || null,
+        firstName: tgUser.first_name || null,
+        lastName: tgUser.last_name || null
+      } : null,
+      candidate: {
+        fullName: get('candidateName'),
+        phone: get('candidatePhone'),
+        email: get('candidateEmail'),
+        birthDate: get('birthDate'),
+        city: get('city')
+      },
+      position: {
+        department: get('department'),
+        title: get('position'),
+        schedule: get('schedule'),
+        manager: get('manager'),
+        startDate: get('startDate')
+      },
+      provisioning: {
+        needed: needsProvisioning,
+        items: needsProvisioning ? {
+          phone: checked('item_phone'),
+          tablet: checked('item_tablet'),
+          laptop: checked('item_laptop'),
+          desktop: checked('item_desktop'),
+          tracker: checked('item_tracker'),
+          corporateEmail: checked('item_corp_email'),
+          impulseKpk: checked('item_impulse_kpk'),
+          bas: checked('item_bas'),
+          uspacy: checked('item_uspacy')
+        } : null
+      },
+      comment: get('comment')
+    };
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    statusMsg.textContent = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Надсилаємо…';
+
+    const payload = buildPayload(new FormData(form));
+
+    try{
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+
+      form.style.display = 'none';
+      successView.classList.add('show');
+
+      if(window.Telegram && window.Telegram.WebApp){
+        window.Telegram.WebApp.MainButton.hide();
+      }
+    }catch(err){
+      statusMsg.textContent = 'Не вдалося надіслати: ' + err.message + '. Спробуйте ще раз.';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Надіслати анкету';
+    }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    form.reset();
+    provChecklist.classList.remove('show');
+    form.style.display = '';
+    successView.classList.remove('show');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Надіслати анкету';
+  });
+</script>
+
+</body>
+</html>
