@@ -321,6 +321,11 @@
   .no-access h2{ font-size: 17px; color: var(--navy); margin: 0 0 8px; }
   .no-access p{ font-size: 13.5px; color: var(--ink-soft); margin: 0; }
 
+  @media (max-width: 480px){
+    .row2{ grid-template-columns: 1fr; }
+    .row2 .field label{ min-height: 0; display:block; }
+  }
+
   @media (prefers-reduced-motion: reduce){ * { transition: none !important; } }
 </style>
 </head>
