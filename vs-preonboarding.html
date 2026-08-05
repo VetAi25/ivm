@@ -140,6 +140,11 @@
     color: var(--ink);
     margin-bottom: 5px;
   }
+  .row2 .field label{
+    min-height: 34px;
+    display: flex;
+    align-items: flex-end;
+  }
   label .req{ color: var(--danger); }
   label .opt{ color: var(--ink-soft); font-weight: 400; font-size: 11.5px; }
 
@@ -287,6 +292,35 @@
     text-align:center;
   }
 
+  .no-access{
+    display:none;
+    max-width: 640px;
+    margin: 40px auto 0;
+    padding: 0 20px;
+  }
+  .no-access.show{ display:block; }
+  .no-access .card{
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align:center;
+  }
+  .no-access .icon{
+    width: 48px; height:48px;
+    border-radius: 50%;
+    background: #FDECEA;
+    color: var(--danger);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin: 0 auto 16px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .no-access h2{ font-size: 17px; color: var(--navy); margin: 0 0 8px; }
+  .no-access p{ font-size: 13.5px; color: var(--ink-soft); margin: 0; }
+
   @media (prefers-reduced-motion: reduce){ * { transition: none !important; } }
 </style>
 </head>
@@ -305,7 +339,15 @@
   <span>Подано від: <b id="whoName">—</b></span>
 </div>
 
-<main>
+<div class="no-access" id="noAccessView">
+  <div class="card">
+    <div class="icon">✕</div>
+    <h2>Немає доступу до анкети</h2>
+    <p>Анкету можна заповнити лише через Telegram-бота ВЕТСТАР. Відкрийте її за посиланням з бота, а не в звичайному браузері.</p>
+  </div>
+</div>
+
+<main id="mainContent">
   <form id="onboardingForm">
 
     <div class="section">
@@ -438,12 +480,17 @@
   }catch(e){ /* not opened inside Telegram — proceed without identification */ }
 
   const whoName = document.getElementById('whoName');
-  if(tgUser){
+  const whoBlock = document.getElementById('whoBlock');
+  const mainContent = document.getElementById('mainContent');
+  const noAccessView = document.getElementById('noAccessView');
+
+  if(tgUser && tgUser.id){
     whoName.textContent = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ')
       + (tgUser.username ? ' (@' + tgUser.username + ')' : '');
   }else{
-    whoName.textContent = 'анкета відкрита поза Telegram';
-    document.getElementById('whoBlock').style.opacity = '0.7';
+    whoBlock.style.display = 'none';
+    mainContent.style.display = 'none';
+    noAccessView.classList.add('show');
   }
 
   // --- yes/no toggle for provisioning checklist ---
