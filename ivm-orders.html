@@ -40,6 +40,7 @@
     .date{font-size:12px;opacity:.8;text-align:right}
     .badges{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
     .badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;border:1px solid #0001;background:#fff;white-space:nowrap}
+    .badge-short{background:#fff6cc;border-color:#f59e0b}
     .i{font-size:14px;line-height:1}
     .grid2{margin-top:10px;display:grid;gap:8px}
     @media(min-width:560px){.grid2{grid-template-columns:1fr 1fr}}
@@ -153,8 +154,8 @@ const TG_USER      = tg?.initDataUnsafe?.user || null; // {id, username, languag
 const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
 
   
-  const LS_KEY_DATA = 'orders_cache_v3';
-  const LS_KEY_TS   = 'orders_cache_ts_v3';
+  const LS_KEY_DATA = 'orders_cache_v4';
+  const LS_KEY_TS   = 'orders_cache_ts_v4';
   const COOLDOWN_MS = 60_000;
 
   const els = {
@@ -203,6 +204,18 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
     if (s === 'Відвантажено (скл.)') return '🚚';
     if (s === 'Очікуємо оплату') return '💰';
     return 'ℹ️';
+  }
+
+  /* фактична сума: до "Зібрано" — по резерву, після — по зібраному */
+  const DONE_STATUSES = new Set(['Зібрано (скл.)','Відвантажено (скл.)']);
+  function factSumBadge(o){
+    const done = DONE_STATUSES.has((o.IM_STATUS||'').trim());
+    const raw = done ? o.IM_SUM_PICKED : o.IM_SUM_RESERVED;
+    if (raw === null || raw === undefined || raw === '') return '';
+    const v = Number(raw);
+    if (!isFinite(v)) return '';
+    const short = v < Number(o.IM_SUM) - 0.005;
+    return `<span class="badge${short ? ' badge-short' : ''}"><span class="i">${done ? '✅' : '📌'}</span>${done ? 'Зібрано на' : 'В резерві'} ${formatUAH(v)}</span>`;
   }
 
   let data = [];
@@ -338,6 +351,7 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
             ${o.IM_STATUS ? `<span class="badge"><span class="i">${statusIcon(o.IM_STATUS)}</span>${o.IM_STATUS}</span>` : ''}
             ${o.IM_DOSTAVKA ? `<span class="badge"><span class="i">🚚</span>${o.IM_DOSTAVKA}</span>` : ''}
             ${(o.IM_SUM ?? '') !== '' ? `<span class="badge"><span class="i">₴</span>${formatUAH(o.IM_SUM)}</span>` : ''}
+            ${factSumBadge(o)}
           </div>
 
           ${(o.IM_DRIEVER || o.IM_DRIEVER_PHONE) ? `
