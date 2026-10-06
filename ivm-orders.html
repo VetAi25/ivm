@@ -206,7 +206,7 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
     return 'ℹ️';
   }
 
-  /* фактична сума: до "Зібрано" — по резерву, після — по зібраному */
+  /* фактична сума (📌 резерв до "Зібрано", ✅ зібрано після) — лише коли менша за суму замовлення */
   const DONE_STATUSES = new Set(['Зібрано (скл.)','Відвантажено (скл.)']);
   function factSumBadge(o){
     const done = DONE_STATUSES.has((o.IM_STATUS||'').trim());
@@ -214,8 +214,9 @@ const uidFromTG    = TG_USER?.id ? String(TG_USER.id) : "";
     if (raw === null || raw === undefined || raw === '') return '';
     const v = Number(raw);
     if (!isFinite(v)) return '';
-    const short = v < Number(o.IM_SUM) - 0.005;
-    return `<span class="badge${short ? ' badge-short' : ''}"><span class="i">${done ? '✅' : '📌'}</span>${done ? 'Зібрано на' : 'В резерві'} ${formatUAH(v)}</span>`;
+    // показуємо лише розбіжність із сумою замовлення
+    if (!(v < Number(o.IM_SUM) - 0.005)) return '';
+    return `<span class="badge badge-short"><span class="i">${done ? '✅' : '📌'}</span>${formatUAH(v)}</span>`;
   }
 
   let data = [];
